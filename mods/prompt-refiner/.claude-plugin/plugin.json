@@ -1,0 +1,6 @@
+{
+  "name": "prompt-refiner",
+  "version": "0.1.0",
+  "description": "Has a cheap model turn each prompt into a clear brief before the main model reads it; /refine on|off.",
+  "types": "./types/index.d.ts"
+}

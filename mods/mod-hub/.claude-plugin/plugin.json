@@ -1,0 +1,6 @@
+{
+  "name": "mod-hub",
+  "version": "0.1.0",
+  "description": "A control panel for your mods: see them all and switch each on or off with /mods.",
+  "types": "./types/index.d.ts"
+}

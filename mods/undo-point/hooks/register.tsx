@@ -399,6 +399,26 @@ const planBash = async ($: $T, command: string, startCwd: string): Promise<BashP
 
 // ------------------------------------------------------------------ hooks
 
+// ------------------------------------------------- mod-hub on/off switch
+// ~/.claude/mod-switches.json { "undo-point": false } pauses this mod. An
+// unreadable file counts as on, so a broken switch never drops protection.
+
+let switchCache: { at: number; on: boolean } | undefined
+
+const isSwitchedOn = async ($: $T) => {
+  if (switchCache && Date.now() - switchCache.at < 2000) return switchCache.on
+  let on = true
+  try {
+    const text = await $.fs.read(`${await home($)}/.claude/mod-switches.json`)
+    const parsed: unknown = JSON.parse(typeof text === 'string' ? text : '{}')
+    on = (parsed as Record<string, unknown>)['undo-point'] !== false
+  } catch {
+    on = true
+  }
+  switchCache = { at: Date.now(), on }
+  return on
+}
+
 const blocked = (why: unknown) => ({
   deny:
     `undo-point: blocked because an undo point could not be saved first — ` +
@@ -409,6 +429,7 @@ const blocked = (why: unknown) => ({
 // Edit / Write / NotebookEdit: save an existing file before it is overwritten,
 // and save the turn's work once it touches more than TURN_FILE_LIMIT files.
 const onFileChange = async ($: $T, rawPath: string, tool: string) => {
+  if (!(await isSwitchedOn($))) return
   const cwd = await $.session.cwd()
   const path = await absolute($, cwd, rawPath)
   turnTouched.add(path)
@@ -501,6 +522,7 @@ export const register: Register = on => {
 
   on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
     try {
+      if (!(await isSwitchedOn($))) return next(e)
       const plan = await planBash($, e.command, await $.session.cwd())
       const isRisky = plan.reasons.length > 0
       if (isRisky) {
