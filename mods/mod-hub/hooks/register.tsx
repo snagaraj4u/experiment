@@ -12,6 +12,7 @@ const RELOAD_COMMAND = 'reload-plugins'
 const mods = atom({ plugin: 'mod-hub', key: 'mods' } as const, [], { shape: 'mods-1' })
 const switchesAtom = atom({ plugin: 'mod-hub', key: 'switches' } as const, {})
 const canReload = atom({ plugin: 'mod-hub', key: 'canReload' } as const, false)
+const isBandOpen = atom({ plugin: 'mod-hub', key: 'isBandOpen' } as const, false)
 
 // Plugins the engine announced while loading (those loaded after this one).
 const seen = new Map<string, ModInfo>()
@@ -133,12 +134,19 @@ const runHub = async ($: $T, e: { args: string }) => {
     return { text: `All mods switched ${target}. ${NOTE}` }
   }
 
-  await $.ui.open({ id: PANE, title: 'Mod hub' })
+  const opened = await $.ui.open({ id: PANE, title: 'Mod hub' }).catch(
+    (err: unknown) => ({ isPlaced: false as const, reason: err instanceof Error ? err.message : String(err) }),
+  )
+  // Where the app shows no pane, the same switches sit above the prompt box.
+  await update($, isBandOpen, () => !opened.isPlaced)
   const switches = await read($, switchesAtom)
   const rows = list.map(
     m => `${m.name === NAME ? '•' : switches[m.name] === false ? '○ off' : '● on '}  ${m.name}  ${m.description}`,
   )
-  return { text: `Mods (toggle in the pane, or /mods on|off <name>):\n${rows.join('\n')}` }
+  const where = opened.isPlaced
+    ? 'toggle in the Mod hub pane'
+    : `your app did not show the pane (${opened.reason}), so the On/Off buttons are above the prompt box`
+  return { text: `Mods (${where}, or /mods on|off <name>):\n${rows.join('\n')}` }
 }
 
 export const register: Register = on => {
@@ -170,6 +178,31 @@ export const register: Register = on => {
 
   on('command.run', { command: 'mods' }, ($, e) => runHub($, e))
   on('command.run', { command: 'jarvis' }, ($, e) => runHub($, e))
+
+  // Fallback for apps that place no panes: the switches as a row above the prompt.
+  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    if (!(await read($, isBandOpen))) return next(e)
+    const { Box, Text, Button } = $.ui.resolve(e)
+    const list = (await read($, mods)).filter(m => m.name !== NAME)
+    const switches = await read($, switchesAtom)
+    return (
+      <Box flexDirection="row" flexWrap="wrap" gap={1}>
+        <Text bold>Mods:</Text>
+        {list.map(m => {
+          const isOn = switches[m.name] !== false
+          return (
+            <Button
+              key={`band-${m.name}`}
+              label={`${m.name}: ${isOn ? 'On' : 'Off'}`}
+              variant={isOn ? 'primary' : 'secondary'}
+              onPress={() => void setMod($, m.name, !isOn)}
+            />
+          )
+        })}
+        <Button key="band-close" label="Close" role="dismiss" onPress={() => void update($, isBandOpen, () => false)} />
+      </Box>
+    )
+  })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Text, Button } = $.ui.resolve(e)

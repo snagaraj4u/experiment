@@ -11,6 +11,7 @@ declare module 'claude-code' {
       mods: Shaped<ModInfo[]>
       switches: Record<string, boolean>
       canReload: boolean
+      isBandOpen: boolean
     }
   }
 }
