@@ -83,6 +83,8 @@ const discover = async ($: $T) => {
     if (info) found.set(info.name, info)
   }
   for (const [name, info] of seen) if (!found.has(name)) found.set(name, info)
+  // Plugins seen before a reload stay listed ($.state outlives the reload).
+  for (const info of await read($, mods)) if (!found.has(info.name)) found.set(info.name, info)
   const list = [...found.values()].sort((a, b) =>
     a.name === NAME ? -1 : b.name === NAME ? 1 : a.name.localeCompare(b.name),
   )
