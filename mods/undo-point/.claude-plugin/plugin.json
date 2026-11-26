@@ -1,0 +1,6 @@
+{
+  "name": "undo-point",
+  "version": "0.1.0",
+  "description": "Saves an undo point before risky file changes; /restore rolls one back with a click.",
+  "types": "./types/index.d.ts"
+}
